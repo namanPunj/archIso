@@ -1,11 +1,78 @@
-# Graphics
-nvidia
-mesa
-xf86-video-intel
+# --- KERNEL & BASE ---
+base
+base-devel
+linux-zen
+linux-zen-headers
+linux-firmware
+intel-ucode
 
-# Desktop
-gnome
-gdm
-firefox
-git
+# --- NETWORK ---
 networkmanager
+network-manager-applet
+wpa_supplicant
+bluez
+bluez-utils
+
+# --- GRAPHICS: INTEL (iGPU) ---
+mesa
+vulkan-intel
+intel-media-driver
+libva-intel-driver
+lib32-mesa
+lib32-vulkan-intel
+
+# --- GRAPHICS: NVIDIA (Discrete GPU) ---
+nvidia-open-dkms
+nvidia-utils
+nvidia-settings
+lib32-nvidia-utils
+
+# --- GRAPHICS SWITCHING UTILITIES ---
+nvidia-prime
+switcheroo-control
+
+# --- DESKTOP: KDE PLASMA ---
+sddm
+plasma-meta
+kde-gtk-config
+breeze-gtk
+breeze-grub
+powerdevil
+kinfocenter
+kscreen
+xdg-desktop-portal-kde
+plasma-workspace-wallpapers
+oxygen-sounds
+
+# --- ESSENTIAL KDE APPS ---
+konsole
+dolphin
+ark
+spectacle
+kate
+kcalc
+gwenview
+okular
+filelight
+
+# --- AUDIO (PipeWire) ---
+pipewire
+pipewire-alsa
+pipewire-pulse
+pipewire-jack
+wireplumber
+pavucontrol
+
+# --- UTILITIES ---
+git
+nano
+vim
+htop
+neofetch
+sudo
+openssh
+wget
+curl
+unzip
+ntfs-3g
+man-db
