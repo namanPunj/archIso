@@ -1,17 +1,1 @@
-# --- KERNEL & BASE ---
-base
-base-devel
-linux-zen
-linux-zen-headers
-linux-firmware
-intel-ucode
-sudo
-nano
-vim
-git
-
-# --- BOOT & DISK ---
-grub
-efibootmgr
-os-prober
-ntfs-3g
+base base-devel linux-zen linux-zen-headers linux-firmware intel-ucode sudo nano vim git grub efibootmgr os-prober ntfs-3g
