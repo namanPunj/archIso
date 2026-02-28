@@ -52,7 +52,7 @@ reflector --latest 10 --protocol https --sort rate --save /etc/pacman.d/mirrorli
 
 # --- PHASE 2: CORE SYSTEM ---
 echo "📦 Installing base system, kernels, and microcode..."
-pacstrap -K /mnt base linux linux-firmware intel-ucode nano
+pacstrap -K /mnt base linux linux-firmware intel-ucode nano sudo
 
 echo "📝 Generating fstab..."
 genfstab -U /mnt >> /mnt/etc/fstab
@@ -94,7 +94,7 @@ systemctl enable NetworkManager
 systemctl enable bluetooth
 
 echo "🖥️ Installing KDE Plasma, Audio, and Nvidia Prime..."
-pacman -S --noconfirm xorg plasma-desktop sddm konsole dolphin pipewire wireplumber pipewire-pulse plasma-pa nvidia-open nvidia-utils nvidia-prime
+pacman -S --noconfirm xorg plasma-desktop sddm konsole dolphin pipewire wireplumber pipewire-pulse plasma-pa sof-firmware alsa-ucm-conf nvidia-open nvidia-utils nvidia-prime
 systemctl enable sddm
 
 echo "✅ Chroot setup complete!"
