@@ -8,4 +8,4 @@ sddm plasma-meta kde-gtk-config breeze-gtk breeze-grub powerdevil kinfocenter ks
 konsole dolphin ark spectacle kate kcalc gwenview okular filelight
 
 # Audio
-pipewire pipewire-alsa pipewire-pulse pipewire-jack wireplumber pavucontrol
+pipewire pipewire-alsa pipewire-pulse wireplumber pavucontrol
