@@ -81,14 +81,17 @@ echo "🛡️ Granting sudo privileges..."
 mkdir -p /etc/sudoers.d
 echo "%wheel ALL=(ALL:ALL) ALL" > /etc/sudoers.d/wheel
 
-echo "🌐 Installing bootloader and networking..."
-pacman -S --noconfirm grub efibootmgr networkmanager
+echo "🌐 Installing bootloader, networking, and bluetooth..."
+pacman -S --noconfirm grub efibootmgr networkmanager plasma-nm bluez bluez-utils bluedevil
 grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
 grub-mkconfig -o /boot/grub/grub.cfg
-systemctl enable NetworkManager
 
-echo "🖥️ Installing KDE Plasma, SDDM, and Nvidia Prime..."
-pacman -S --noconfirm xorg plasma-desktop sddm konsole dolphin nvidia-open nvidia-utils nvidia-prime
+# Enable background services
+systemctl enable NetworkManager
+systemctl enable bluetooth
+
+echo "🖥️ Installing KDE Plasma, Audio, and Nvidia Prime..."
+pacman -S --noconfirm xorg plasma-desktop sddm konsole dolphin pipewire wireplumber pipewire-pulse plasma-pa nvidia-open nvidia-utils nvidia-prime
 systemctl enable sddm
 
 echo "✅ Chroot setup complete!"
