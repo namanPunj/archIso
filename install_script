@@ -38,6 +38,8 @@ read -p "Enter your EFI partition (e.g., /dev/nvme0n1p1 or /dev/sda1): " EFI_PAR
 read -p "Enter your Root partition (e.g., /dev/nvme0n1p2 or /dev/sda2): " ROOT_PART
 
 echo -e "\n🧹 Formatting partitions..."
+# This forcefully unmounts the partitions if they were left mounted from a previous failed run
+umount -R /mnt 2>/dev/null || true 
 mkfs.fat -F 32 $EFI_PART
 mkfs.ext4 -F $ROOT_PART
 
