@@ -1,7 +1,7 @@
 # Network & Drivers
 networkmanager network-manager-applet wpa_supplicant bluez bluez-utils
 mesa vulkan-intel intel-media-driver libva-intel-driver lib32-mesa lib32-vulkan-intel
-nvidia-open-dkms nvidia-utils nvidia-settings lib32-nvidia-utils nvidia-prime switcheroo-control
+nvidia-dkms nvidia-utils nvidia-settings lib32-nvidia-utils nvidia-prime switcheroo-control
 
 # Desktop & Core KDE Tools
 sddm plasma-meta kde-gtk-config breeze-gtk breeze-grub powerdevil kinfocenter kscreen xdg-desktop-portal-kde
