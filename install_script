@@ -1,0 +1,104 @@
+#!/bin/bash
+
+# --- ERROR HANDLING ---
+# Exit immediately if a command exits with a non-zero status
+set -e
+# Trap errors and print the exact line and command that failed
+trap 'echo -e "\n🛑 FATAL ERROR: Setup broke! Command \"$BASH_COMMAND\" failed on line $LINENO." >&2; exit 1' ERR
+
+echo "🚀 Starting Arch Linux interactive installation..."
+
+# --- VARIABLES (CHANGE THESE BEFORE RUNNING) ---
+USERNAME="yourusername"
+USER_PASS="youruserpassword"
+ROOT_PASS="yourrootpassword"
+HOSTNAME="dell-g15"
+TIMEZONE="Asia/Kolkata"
+
+# --- PHASE 1: PREPARATION & PARTITIONING ---
+echo "⏳ Updating system clock..."
+timedatectl set-ntp true
+
+echo -e "\n💾 Here are your current disks:"
+lsblk
+echo ""
+read -p "Enter the disk you want to partition (e.g., /dev/nvme0n1 or /dev/sda): " DISK
+
+echo -e "\n🛠️ Opening cfdisk for $DISK..."
+echo "Please create your partitions now. You need:"
+echo "1. An EFI System partition (approx 1GB, Type: EFI System)"
+echo "2. A Root partition (The rest of your space, Type: Linux filesystem)"
+read -p "Press Enter to open cfdisk..."
+cfdisk $DISK
+
+echo -e "\n💾 Here are your new partitions on $DISK:"
+lsblk $DISK
+echo ""
+read -p "Enter your EFI partition (e.g., /dev/nvme0n1p1 or /dev/sda1): " EFI_PART
+read -p "Enter your Root partition (e.g., /dev/nvme0n1p2 or /dev/sda2): " ROOT_PART
+
+echo -e "\n🧹 Formatting partitions..."
+mkfs.fat -F 32 $EFI_PART
+mkfs.ext4 -F $ROOT_PART
+
+echo "📂 Mounting partitions..."
+mount $ROOT_PART /mnt
+mount --mkdir $EFI_PART /mnt/boot
+
+# --- PHASE 2: CORE SYSTEM ---
+echo "📦 Installing base system, kernels, and microcode..."
+pacstrap -K /mnt base linux linux-firmware intel-ucode nano
+
+echo "📝 Generating fstab..."
+genfstab -U /mnt >> /mnt/etc/fstab
+
+# --- PHASE 3: BUILDING THE CHROOT SCRIPT ---
+echo "🏗️ Generating chroot environment script..."
+
+cat <<EOF > /mnt/setup-chroot.sh
+#!/bin/bash
+set -e
+trap 'echo -e "\n🛑 FATAL ERROR IN CHROOT: Command \"\$BASH_COMMAND\" failed on line \$LINENO." >&2; exit 1' ERR
+
+echo "🌍 Configuring timezone and locale..."
+ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime
+hwclock --systohc
+
+# Uncomment en_US.UTF-8 and generate
+sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+locale-gen
+echo "LANG=en_US.UTF-8" > /etc/locale.conf
+echo "$HOSTNAME" > /etc/hostname
+
+echo "🔐 Setting up users and passwords..."
+echo "root:$ROOT_PASS" | chpasswd
+useradd -m -G wheel -s /bin/bash $USERNAME
+echo "$USERNAME:$USER_PASS" | chpasswd
+
+echo "🛡️ Granting sudo privileges..."
+echo "%wheel ALL=(ALL:ALL) ALL" > /etc/sudoers.d/wheel
+
+echo "🌐 Installing bootloader and networking..."
+pacman -S --noconfirm grub efibootmgr networkmanager
+grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
+grub-mkconfig -o /boot/grub/grub.cfg
+systemctl enable NetworkManager
+
+echo "🖥️ Installing KDE Plasma, SDDM, and Nvidia Prime..."
+pacman -S --noconfirm xorg plasma-desktop sddm konsole dolphin nvidia nvidia-utils nvidia-prime
+systemctl enable sddm
+
+echo "✅ Chroot setup complete!"
+EOF
+
+# --- PHASE 4: EXECUTING CHROOT & CLEANUP ---
+echo "🏃 Entering chroot to finalize setup..."
+chmod +x /mnt/setup-chroot.sh
+arch-chroot /mnt /setup-chroot.sh
+
+echo "🧹 Cleaning up..."
+rm /mnt/setup-chroot.sh
+umount -R /mnt
+
+echo "🎉 ALL DONE! The system is successfully installed."
+echo "You can now type 'reboot' and remove your installation USB."
