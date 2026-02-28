@@ -47,6 +47,9 @@ echo "📂 Mounting partitions..."
 mount $ROOT_PART /mnt
 mount --mkdir $EFI_PART /mnt/boot
 
+echo "🌍 Finding the fastest download servers (this takes a few seconds)..."
+reflector --latest 10 --protocol https --sort rate --save /etc/pacman.d/mirrorlist
+
 # --- PHASE 2: CORE SYSTEM ---
 echo "📦 Installing base system, kernels, and microcode..."
 pacstrap -K /mnt base linux linux-firmware intel-ucode nano
