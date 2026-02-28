@@ -88,7 +88,7 @@ grub-mkconfig -o /boot/grub/grub.cfg
 systemctl enable NetworkManager
 
 echo "🖥️ Installing KDE Plasma, SDDM, and Nvidia Prime..."
-pacman -S --noconfirm xorg plasma-desktop sddm konsole dolphin nvidia nvidia-utils nvidia-prime
+pacman -S --noconfirm xorg plasma-desktop sddm konsole dolphin nvidia-open nvidia-utils nvidia-prime
 systemctl enable sddm
 
 echo "✅ Chroot setup complete!"
