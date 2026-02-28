@@ -9,10 +9,10 @@ trap 'echo -e "\n🛑 FATAL ERROR: Setup broke! Command \"$BASH_COMMAND\" failed
 echo "🚀 Starting Arch Linux interactive installation..."
 
 # --- VARIABLES (CHANGE THESE BEFORE RUNNING) ---
-USERNAME="yourusername"
-USER_PASS="youruserpassword"
-ROOT_PASS="yourrootpassword"
-HOSTNAME="dell-g15"
+USERNAME="CHISER"
+USER_PASS="ldh9468"
+ROOT_PASS="kagi"
+HOSTNAME="AriseOS"
 TIMEZONE="Asia/Kolkata"
 
 # --- PHASE 1: PREPARATION & PARTITIONING ---
@@ -76,6 +76,7 @@ useradd -m -G wheel -s /bin/bash $USERNAME
 echo "$USERNAME:$USER_PASS" | chpasswd
 
 echo "🛡️ Granting sudo privileges..."
+mkdir -p /etc/sudoers.d
 echo "%wheel ALL=(ALL:ALL) ALL" > /etc/sudoers.d/wheel
 
 echo "🌐 Installing bootloader and networking..."
