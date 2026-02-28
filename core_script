@@ -1,0 +1,128 @@
+#!/bin/bash
+# ==========================================
+# ARISE OS - CORE ENGINE (NET-INSTALLER)
+# ==========================================
+RED='\033[1;31m'
+GREEN='\033[1;32m'
+CYAN='\033[1;36m'
+PURPLE='\033[1;35m'
+YELLOW='\033[1;33m'
+BLUE='\033[1;34m'
+NC='\033[0m'
+LOG_FILE="/tmp/arise_install.log"
+
+LINK_REMOTE_PAYLOAD="https://raw.githubusercontent.com/namanPunj/archIso/refs/heads/main/post_install.sh"
+
+clear
+echo -e "${CYAN}>> ARISE CORE ENGINE <<${NC}\n"
+
+run_task() {
+    local msg="$1"
+    shift
+    "$@" >> "$LOG_FILE" 2>&1 &
+    local pid=$!
+    local width=20
+    local progress=0
+    
+    tput civis
+    while kill -0 $pid 2>/dev/null; do
+        progress=$((progress + (100 - progress) / 20))
+        if [ $progress -gt 99 ]; then progress=99; fi
+        local filled=$((progress * width / 100))
+        local empty=$((width - filled))
+        local bar=$(printf "%${filled}s" | tr ' ' '█')
+        local space=$(printf "%${empty}s" | tr ' ' '░')
+        printf "\r\e[K${BLUE}[${CYAN}%s%s${BLUE}]${NC} %3d%% | ${YELLOW}⚙${NC} %s" "$bar" "$space" "$progress" "$msg"
+        sleep 0.2
+    done
+    wait $pid
+    local status=$?
+    tput cnorm
+
+    local full_bar=$(printf "%${width}s" | tr ' ' '█')
+    if [ $status -eq 0 ]; then
+        printf "\r\e[K${BLUE}[${GREEN}%s${BLUE}]${NC} 100%% | ${GREEN}✔${NC} %s\n" "$full_bar" "$msg"
+    else
+        printf "\r\e[K${BLUE}[${RED}%s${BLUE}]${NC} ERR! | ${RED}✘${NC} %s\n" "$full_bar" "$msg"
+        echo -e "\n${RED}[FATAL ERROR] Check logs: cat $LOG_FILE${NC}"
+        umount -R /mnt 2>/dev/null
+        exit 1
+    fi
+}
+
+# --- 1. NETWORK & AUTH ---
+read -sp " [?] Enter Arise Script Passphrase: " SCRIPT_PASS; echo
+[[ "$SCRIPT_PASS" != "archarise" ]] && exit 1
+
+systemctl start NetworkManager 
+if ! ping -c 1 archlinux.org > /dev/null 2>&1; then
+    nmtui
+    ping -c 1 archlinux.org > /dev/null 2>&1 || exit 1
+fi
+run_task "Verifying connection" ping -c 1 archlinux.org
+echo ""
+
+# --- 2. PARTITIONING ---
+lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINTS | grep -v "loop"
+read -p " [?] Enter the Target Drive (e.g., nvme0n1): " TARGET_DRIVE
+read -p "  -> Press ENTER to open CFDISK..."
+cfdisk "/dev/$TARGET_DRIVE"
+
+lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINTS "/dev/$TARGET_DRIVE"
+read -p " [?] Enter EFI partition name (e.g., ${TARGET_DRIVE}p1): " EFI_PART
+read -p " [?] Enter NEW ROOT partition name (e.g., ${TARGET_DRIVE}p3): " ROOT_PART
+
+read -p " [?] Type 'YES' to confirm Root format: " FORMAT_CONFIRM
+[[ "$FORMAT_CONFIRM" != "YES" ]] && exit 1
+
+run_task "Formatting Root (EXT4)" mkfs.ext4 -F "/dev/$ROOT_PART"
+read -p " [?] Format EFI? (y/n): " FORMAT_EFI
+[[ "$FORMAT_EFI" == "y" ]] && run_task "Formatting EFI" mkfs.fat -F32 "/dev/$EFI_PART"
+
+run_task "Mounting Root" mount "/dev/$ROOT_PART" /mnt
+mkdir -p /mnt/boot
+run_task "Mounting EFI" mount "/dev/$EFI_PART" /mnt/boot
+run_task "Cleaning old boot files" bash -c "rm -f /mnt/boot/intel-ucode.img /mnt/boot/initramfs* /mnt/boot/vmlinuz*"
+echo ""
+
+# --- 3. CREDENTIALS ---
+read -sp " [?] Set ROOT Password: " ROOT_PASS; echo
+read -p " [?] Enter Username: " USER_NAME
+read -sp " [?] Set Password for $USER_NAME: " USER_PASS; echo
+echo ""
+
+# --- 4. BASE INSTALL ---
+run_task "Syncing Mirrors" pacman -Sy
+run_task "Installing Base System" pacstrap -K /mnt base base-devel linux-zen linux-zen-headers linux-firmware intel-ucode sudo nano vim git curl grub efibootmgr os-prober ntfs-3g arch-install-scripts networkmanager
+run_task "Enabling Multilib" bash -c "echo -e '\n[multilib]\nInclude = /etc/pacman.d/mirrorlist' >> /mnt/etc/pacman.conf"
+run_task "Syncing Repositories" arch-chroot /mnt pacman -Sy
+echo ""
+
+# --- 5. CONFIGURATION ---
+run_task "Generating fstab" bash -c "genfstab -U /mnt > /mnt/etc/fstab"
+run_task "Generating Swapfile" arch-chroot /mnt bash -c "mkswap -U clear --size 4G --file /swapfile && swapon /swapfile && echo '/swapfile none swap defaults 0 0' >> /etc/fstab"
+run_task "Setting Clock & Host" bash -c "arch-chroot /mnt ln -sf /usr/share/zoneinfo/Asia/Kolkata /etc/localtime && arch-chroot /mnt hwclock --systohc && echo 'arise-os' > /mnt/etc/hostname"
+run_task "Installing GRUB" arch-chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=AriseOS
+run_task "Generating Boot Menu" arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
+run_task "Enabling Network" arch-chroot /mnt systemctl enable NetworkManager
+run_task "Migrating Wi-Fi" bash -c "cp -r /etc/NetworkManager/system-connections/* /mnt/etc/NetworkManager/system-connections/ 2>/dev/null || true"
+echo ""
+
+# --- 6. USER SETUP ---
+run_task "Creating User" arch-chroot /mnt useradd -m -G wheel "$USER_NAME"
+run_task "Setting Passwords" bash -c "echo '$USER_NAME:$USER_PASS' | arch-chroot /mnt chpasswd && echo 'root:$ROOT_PASS' | arch-chroot /mnt chpasswd"
+run_task "Securing Sudo" bash -c "echo '%wheel ALL=(ALL) ALL' >> /mnt/etc/sudoers"
+echo ""
+
+# --- 7. REMOTE HANDOVER ---
+echo -e "${PURPLE}>> FETCHING REMOTE PAYLOAD FROM GITHUB <<${NC}"
+run_task "Downloading Payload" curl -sfL "$LINK_REMOTE_PAYLOAD" -o /mnt/root/post_install.sh
+run_task "Making Executable" chmod +x /mnt/root/post_install.sh
+
+echo -e "${YELLOW}>> HANDING CONTROL TO POST-INSTALL SCRIPT <<${NC}\n"
+arch-chroot /mnt /root/post_install.sh "$USER_NAME"
+
+# --- 8. FINISH ---
+run_task "Cleaning Up" rm -f /mnt/root/post_install.sh
+run_task "Unmounting" umount -R /mnt
+echo -e "\n${GREEN}ARISE OS CORE DEPLOYMENT COMPLETE! Reboot your system.${NC}"
