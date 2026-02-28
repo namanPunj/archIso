@@ -1,3 +1,4 @@
+
 #!/bin/bash
 # ==========================================
 # ARISE OS - CORE ENGINE (NET-INSTALLER)
@@ -14,8 +15,19 @@ LOG_FILE="/tmp/arise_install.log"
 LINK_REMOTE_PAYLOAD="https://raw.githubusercontent.com/namanPunj/archIso/refs/heads/main/post_install.sh"
 
 clear
-echo -e "${CYAN}>> ARISE CORE ENGINE <<${NC}\n"
+echo -e "${CYAN}"
+cat << "EOF"
+ █████╗ ██████╗ ██╗███████╗███████╗     ██████╗ ███████╗
+██╔══██╗██╔══██╗██║██╔════╝██╔════╝    ██╔═══██╗██╔════╝
+███████║██████╔╝██║███████╗█████╗      ██║   ██║███████╗
+██╔══██║██╔══██╗██║╚════██║██╔══╝      ██║   ██║╚════██║
+██║  ██║██║  ██║██║███████║███████╗    ╚██████╔╝███████║
+╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚══════╝╚══════╝     ╚═════╝ ╚══════╝
+EOF
+echo -e "${NC}"
+echo -e "${PURPLE}>> INITIATING ARISE CORE ENGINE <<${NC}\n"
 
+# This is the "Live Line" function!
 run_task() {
     local msg="$1"
     shift
@@ -102,8 +114,12 @@ echo ""
 run_task "Generating fstab" bash -c "genfstab -U /mnt > /mnt/etc/fstab"
 run_task "Generating Swapfile" arch-chroot /mnt bash -c "mkswap -U clear --size 4G --file /swapfile && swapon /swapfile && echo '/swapfile none swap defaults 0 0' >> /etc/fstab"
 run_task "Setting Clock & Host" bash -c "arch-chroot /mnt ln -sf /usr/share/zoneinfo/Asia/Kolkata /etc/localtime && arch-chroot /mnt hwclock --systohc && echo 'arise-os' > /mnt/etc/hostname"
-run_task "Installing GRUB" arch-chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=AriseOS
+run_task "Creating vconsole" bash -c "echo 'KEYMAP=us' > /mnt/etc/vconsole.conf"
+
+run_task "Configuring NVIDIA Boot Flag" bash -c "sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT=\"loglevel=3 quiet\"/GRUB_CMDLINE_LINUX_DEFAULT=\"loglevel=3 quiet nvidia_drm.modeset=1\"/' /mnt/etc/default/grub"
+run_task "Installing Bootloader" arch-chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=AriseOS
 run_task "Generating Boot Menu" arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
+
 run_task "Enabling Network" arch-chroot /mnt systemctl enable NetworkManager
 run_task "Migrating Wi-Fi" bash -c "cp -r /etc/NetworkManager/system-connections/* /mnt/etc/NetworkManager/system-connections/ 2>/dev/null || true"
 echo ""
@@ -124,5 +140,5 @@ arch-chroot /mnt /root/post_install.sh "$USER_NAME"
 
 # --- 8. FINISH ---
 run_task "Cleaning Up" rm -f /mnt/root/post_install.sh
-run_task "Unmounting" umount -R /mnt
+run_task "Unmounting" bash -c "umount -lR /mnt || true"
 echo -e "\n${GREEN}ARISE OS CORE DEPLOYMENT COMPLETE! Reboot your system.${NC}"
