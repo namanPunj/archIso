@@ -23,43 +23,33 @@ echo ""
 read -p "Enter the disk you want to partition (e.g., /dev/nvme0n1 or /dev/sda): " DISK
 
 echo -e "\n🛠️ Opening cfdisk for $DISK..."
-echo "Please create/verify your partitions now. You need:"
-echo "1. An EFI System partition (approx 1GB, Type: EFI System) - DO NOT format if you already have one!"
-echo "2. A Root partition (The rest of your space, Type: Linux filesystem)"
+echo "Please verify your partitions now. You need:"
+echo "1. Your EXISTING EFI System partition"
+echo "2. A NEW Root partition for AriseOS (Type: Linux filesystem)"
 read -p "Press Enter to open cfdisk..."
 cfdisk $DISK
 
 echo -e "\n💾 Here are your partitions on $DISK:"
 lsblk $DISK
 echo ""
-read -p "Enter your EFI partition (e.g., /dev/nvme0n1p1 or /dev/sda1): " EFI_PART
-read -p "Enter your Root partition (e.g., /dev/nvme0n1p2 or /dev/sda2): " ROOT_PART
+read -p "Enter your EXISTING EFI partition (e.g., /dev/nvme0n1p1): " EFI_PART
+read -p "Enter your NEW Root partition (e.g., /dev/nvme0n1p3): " ROOT_PART
 
-echo -e "\n🧹 Formatting partitions..."
+echo -e "\n🧹 Preparing partitions (Safely)..."
 umount -R /mnt 2>/dev/null || true 
 
-# SAFE EFI HANDLING
-read -p "⚠️ Do you want to FORMAT the EFI partition? Type 'yes' for a fresh drive, or 'no' to keep an existing system's bootloader: " FORMAT_EFI
-if [[ "$FORMAT_EFI" == "yes" ]]; then
-    echo "Formatting EFI partition..."
-    mkfs.fat -F 32 $EFI_PART
-else
-    echo "Skipping EFI format. Your existing boot files will remain intact."
-fi
-
-echo "Formatting Root partition..."
+echo "Formatting NEW Root partition..."
 mkfs.ext4 -F $ROOT_PART
 
 echo "📂 Mounting partitions..."
+# Mount the new root
 mount $ROOT_PART /mnt
-# FIXED: Mounting to /efi instead of /boot to avoid file conflicts with your existing OS
+# Mount the shared EFI safely to /efi so it does not conflict with your old kernels
 mount --mkdir $EFI_PART /mnt/efi
-
-echo "🌍 Finding the fastest download servers (this takes a few seconds)..."
-reflector --latest 10 --protocol https --sort rate --save /etc/pacman.d/mirrorlist
 
 # --- PHASE 2: CORE SYSTEM ---
 echo "📦 Installing base system, kernels, and microcode..."
+# These files will now safely install to the NEW root partition, avoiding file conflicts.
 pacstrap -K /mnt base linux linux-firmware intel-ucode nano sudo
 
 echo "📝 Generating fstab..."
@@ -93,11 +83,10 @@ echo "%wheel ALL=(ALL:ALL) ALL" > /etc/sudoers.d/wheel
 chmod 440 /etc/sudoers.d/wheel
 
 echo "🌐 Installing bootloader, networking, and bluetooth..."
-pacman -S --noconfirm grub efibootmgr os-prober networkmanager plasma-nm bluez bluez-utils bluedevil
+# os-prober has been removed to protect your old system from bad boot configurations.
+pacman -S --noconfirm grub efibootmgr networkmanager plasma-nm bluez bluez-utils bluedevil
 
-sed -i 's/#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/' /etc/default/grub
-
-# FIXED: Pointing grub-install to /efi instead of /boot
+# Install GRUB uniquely to the EFI partition without touching the old Arch EFI folder.
 grub-install --target=x86_64-efi --efi-directory=/efi --bootloader-id=AriseOS-GRUB
 grub-mkconfig -o /boot/grub/grub.cfg
 
@@ -120,5 +109,5 @@ echo "🧹 Cleaning up..."
 rm /mnt/setup-chroot.sh
 umount -R /mnt
 
-echo "🎉 ALL DONE! The system is successfully installed."
-echo "You can now type 'reboot' and remove your installation USB."
+echo "🎉 ALL DONE! The system is successfully installed in total isolation."
+echo "Type 'reboot'. Use your motherboard's F11/F12 boot menu to choose between your Old Arch and AriseOS."
