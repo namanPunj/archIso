@@ -1,9 +1,7 @@
 #!/bin/bash
 
 # --- ERROR HANDLING ---
-# Exit immediately if a command exits with a non-zero status
 set -e
-# Trap errors and print the exact line and command that failed
 trap 'echo -e "\n🛑 FATAL ERROR: Setup broke! Command \"$BASH_COMMAND\" failed on line $LINENO." >&2; exit 1' ERR
 
 echo "🚀 Starting Arch Linux interactive installation..."
@@ -38,7 +36,6 @@ read -p "Enter your EFI partition (e.g., /dev/nvme0n1p1 or /dev/sda1): " EFI_PAR
 read -p "Enter your Root partition (e.g., /dev/nvme0n1p2 or /dev/sda2): " ROOT_PART
 
 echo -e "\n🧹 Formatting partitions..."
-# Forcefully unmount partitions if left mounted from a previous run
 umount -R /mnt 2>/dev/null || true 
 
 # SAFE EFI HANDLING
@@ -55,7 +52,8 @@ mkfs.ext4 -F $ROOT_PART
 
 echo "📂 Mounting partitions..."
 mount $ROOT_PART /mnt
-mount --mkdir $EFI_PART /mnt/boot
+# FIXED: Mounting to /efi instead of /boot to avoid file conflicts with your existing OS
+mount --mkdir $EFI_PART /mnt/efi
 
 echo "🌍 Finding the fastest download servers (this takes a few seconds)..."
 reflector --latest 10 --protocol https --sort rate --save /etc/pacman.d/mirrorlist
@@ -79,7 +77,6 @@ echo "🌍 Configuring timezone and locale..."
 ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime
 hwclock --systohc
 
-# Uncomment en_US.UTF-8 and generate
 sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
 locale-gen
 echo "LANG=en_US.UTF-8" > /etc/locale.conf
@@ -91,29 +88,23 @@ useradd -m -G wheel -s /bin/bash $USERNAME
 echo "$USERNAME:$USER_PASS" | chpasswd
 
 echo "🛡️ Granting sudo privileges..."
-# This is the script-safe equivalent of using 'visudo'
 mkdir -p /etc/sudoers.d
 echo "%wheel ALL=(ALL:ALL) ALL" > /etc/sudoers.d/wheel
-# Ensure correct permissions, otherwise sudo will break
 chmod 440 /etc/sudoers.d/wheel
 
 echo "🌐 Installing bootloader, networking, and bluetooth..."
-# Added os-prober to detect existing operating systems
 pacman -S --noconfirm grub efibootmgr os-prober networkmanager plasma-nm bluez bluez-utils bluedevil
 
-# Enable os-prober in GRUB config so it finds the old OS
 sed -i 's/#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/' /etc/default/grub
 
-# Install GRUB. Using a unique bootloader-id prevents overwriting existing OS EFI folders.
-grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=AriseOS-GRUB
+# FIXED: Pointing grub-install to /efi instead of /boot
+grub-install --target=x86_64-efi --efi-directory=/efi --bootloader-id=AriseOS-GRUB
 grub-mkconfig -o /boot/grub/grub.cfg
 
-# Enable background services
 systemctl enable NetworkManager
 systemctl enable bluetooth
 
 echo "🖥️ Installing KDE Plasma, Audio, and Nvidia Prime..."
-# Added kscreen, kate, sof-firmware, alsa-ucm-conf
 pacman -S --noconfirm xorg plasma-desktop sddm konsole dolphin kscreen kate pipewire wireplumber pipewire-pulse plasma-pa sof-firmware alsa-ucm-conf nvidia-open nvidia-utils nvidia-prime
 systemctl enable sddm
 
